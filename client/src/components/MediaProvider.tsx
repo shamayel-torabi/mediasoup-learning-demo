@@ -62,7 +62,7 @@ interface ServerToClientEvents {
 }
 
 interface ClientToServerEvents {
-    'getRouterRtpCapabilities': (callback: (params: { routerRtpCapabilities: RtpCapabilities; }) => Promise<void>) => void,
+    'getRouterRtpCapabilities': (callback: ({ routerRtpCapabilities }: { routerRtpCapabilities: RtpCapabilities; }) => void) => void,
     'createTransport': ({ sender }: { sender: boolean }, callback: ({ params, error }: {
         params: { id: string; iceParameters: IceParameters; iceCandidates: IceCandidate[]; dtlsParameters: DtlsParameters; },
         error?: unknown
@@ -70,7 +70,7 @@ interface ClientToServerEvents {
     'consumeMedia': (data: { rtpCapabilities: RtpCapabilities }, callback: ({ params, error }: {
         params: { producerId: string, id: string, kind: MediaKind, rtpParameters: RtpParameters },
         error?: unknown
-    }) => Promise<void>) => void,
+    }) => void) => void,
     'connectProducerTransport': (data: { dtlsParameters: DtlsParameters }) => void,
     'transport-produce': (data: { kind: MediaKind; rtpParameters: RtpParameters }, callback: (params: { id: string }) => void) => void,
     'connectConsumerTransport': (data: { dtlsParameters: DtlsParameters }) => void,
@@ -195,10 +195,12 @@ export default function MediaProvider({ children }: Readonly<{ children: React.R
 
     const createDevice = async () => {
         try {
-            const { routerRtpCapabilities } = await socket!.emitWithAck("getRouterRtpCapabilities");
-            const newDevice = new Device();
-            await newDevice.load({ routerRtpCapabilities: routerRtpCapabilities });
-            dispatch({ type: ActionType.SET_DEVICE, payload: newDevice });
+            if(socket){
+                const routerRtpCapabilities = await socket.emitWithAck("getRouterRtpCapabilities");
+                const newDevice = new Device();
+                await newDevice.load(routerRtpCapabilities);   
+                dispatch({ type: ActionType.SET_DEVICE, payload: newDevice });
+            }
         } catch (error: unknown) {
             console.log(error);
             if (error instanceof Error && error.name === "UnsupportedError") {
