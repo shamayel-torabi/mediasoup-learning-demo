@@ -58,19 +58,19 @@ interface MediaState {
 }
 
 interface ServerToClientEvents {
-    "connection-success": (data: {socketId: string}) => void
+    "connection-success": (data: { socketId: string }) => void
 }
 
 interface ClientToServerEvents {
     'getRouterRtpCapabilities': (callback: (params: { routerRtpCapabilities: RtpCapabilities; }) => Promise<void>) => void,
-    'createTransport': ({ sender }: { sender: boolean }, callback: (params: {
-        id: string; iceParameters: IceParameters; iceCandidates: IceCandidate[]; dtlsParameters: DtlsParameters; error?: unknown;
-    }
-    ) => void) => void,
-    'consumeMedia': (data: { rtpCapabilities: RtpCapabilities }, callback: (params: {
-        producerId: string, id: string, kind: MediaKind, rtpParameters: RtpParameters, error?: unknown
-    }
-    ) => Promise<void>) => void,
+    'createTransport': ({ sender }: { sender: boolean }, callback: ({ params, error }: {
+        params: { id: string; iceParameters: IceParameters; iceCandidates: IceCandidate[]; dtlsParameters: DtlsParameters; },
+        error?: unknown
+    }) => void) => void,
+    'consumeMedia': (data: { rtpCapabilities: RtpCapabilities }, callback: ({ params, error }: {
+        params: { producerId: string, id: string, kind: MediaKind, rtpParameters: RtpParameters },
+        error?: unknown
+    }) => Promise<void>) => void,
     'connectProducerTransport': (data: { dtlsParameters: DtlsParameters }) => void,
     'transport-produce': (data: { kind: MediaKind; rtpParameters: RtpParameters }, callback: (params: { id: string }) => void) => void,
     'connectConsumerTransport': (data: { dtlsParameters: DtlsParameters }) => void,
@@ -195,9 +195,9 @@ export default function MediaProvider({ children }: Readonly<{ children: React.R
 
     const createDevice = async () => {
         try {
-            const params = await socket!.emitWithAck("getRouterRtpCapabilities");
+            const { routerRtpCapabilities } = await socket!.emitWithAck("getRouterRtpCapabilities");
             const newDevice = new Device();
-            await newDevice.load({ routerRtpCapabilities: params.routerRtpCapabilities });
+            await newDevice.load({ routerRtpCapabilities: routerRtpCapabilities });
             dispatch({ type: ActionType.SET_DEVICE, payload: newDevice });
         } catch (error: unknown) {
             console.log(error);
@@ -208,10 +208,10 @@ export default function MediaProvider({ children }: Readonly<{ children: React.R
     };
 
     const createSendTransport = async () => {
-        const params = await socket!.emitWithAck("createTransport", { sender: true });
+        const { params, error } = await socket!.emitWithAck("createTransport", { sender: true });
 
-        if (params.error) {
-            console.log(`createSendTransport callback error: ${params.error}`);
+        if (error) {
+            console.log(`createSendTransport callback error: ${error}`);
             return;
         }
 
@@ -395,86 +395,59 @@ export default function MediaProvider({ children }: Readonly<{ children: React.R
     };
 
     const createRecvTransport = async () => {
-        // Requesting the server to create a receive transport
-        socket?.emit(
-            "createTransport",
-            { sender: false },
-            ({ params }: {
-                params: {
-                    id: string; iceParameters: IceParameters; iceCandidates: IceCandidate[]; dtlsParameters: DtlsParameters; error?: unknown;
-                }
-            }) => {
-                if (params.error) {
-                    console.log(`createRecvTransport callback error: ${params.error}`);
-                    return;
-                }
+        const { params, error } = await socket!.emitWithAck("createTransport", { sender: false });
 
-                // Creating a receive transport on the client-side using the server-provided parameters
-                const transport = state.device?.createRecvTransport(params);
-                dispatch({ type: ActionType.SET_CONSUMER_TRANSPORT, payload: transport })
-                console.log(`createRecvTransport transport:${transport}`)
+        if (error) {
+            console.log(`createRecvTransport callback error: ${error}`);
+            return;
+        }
 
-                /**
-                 * This event is triggered when "consumerTransport.consume" is called
-                 * for the first time on the client-side.
-                 * */
-                transport?.on(
-                    "connect",
-                    async ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
-                        try {
-                            // Notifying the server to connect the receive transport with the provided DTLS parameters
-                            socket.emit("connectConsumerTransport", { dtlsParameters });
-                            console.log("----------> consumer transport has connected");
-                            callback();
-                        } catch (error: unknown) {
-                            errback(error as Error);
-                        }
-                    }
-                );
+        // Creating a receive transport on the client-side using the server-provided parameters
+        const transport = state.device?.createRecvTransport(params);
+        dispatch({ type: ActionType.SET_CONSUMER_TRANSPORT, payload: transport })
+        console.log(`createRecvTransport transport:${transport}`)
+
+        /**
+         * This event is triggered when "consumerTransport.consume" is called
+         * for the first time on the client-side.
+         * */
+        transport?.on(
+            "connect",
+            async ({ dtlsParameters }: { dtlsParameters: DtlsParameters }, callback: () => void, errback: (error: Error) => void) => {
+                try {
+                    // Notifying the server to connect the receive transport with the provided DTLS parameters
+                    socket!.emit("connectConsumerTransport", { dtlsParameters });
+                    console.log("----------> consumer transport has connected");
+                    callback();
+                } catch (error: unknown) {
+                    errback(error as Error);
+                }
             }
         );
     };
 
     const connectRecvTransport = async () => {
-        // Requesting the server to start consuming media
-        socket?.emit(
-            "consumeMedia",
-            { rtpCapabilities: state.device?.rtpCapabilities as RtpCapabilities },
-            async ({ params }: {
-                params: {
-                    producerId: string,
-                    id: string,
-                    kind: MediaKind,
-                    rtpParameters: RtpParameters,
-                    error: unknown
-                }
-            }) => {
-                if (params.error) {
-                    console.log(params.error);
-                    return;
-                }
+        const { params, error } = await socket!.emitWithAck("consumeMedia", { rtpCapabilities: state.device?.rtpCapabilities as RtpCapabilities });
 
-                // Consuming media using the receive transport
-                const consumer = await state.consumerTransport?.consume({
-                    id: params.id,
-                    producerId: params.producerId,
-                    kind: params.kind,
-                    rtpParameters: params.rtpParameters,
-                });
+        if (error) {
+            console.log(error);
+            return;
+        }
 
-                // Accessing the media track from the consumer
-                const { track } = consumer!;
-                console.log("************** track", track!);
+        // Consuming media using the receive transport
+        const consumer = await state.consumerTransport?.consume(params);
 
-                if (state.remoteVideo) {
-                    state.remoteVideo.srcObject = new MediaStream([track]);
-                }
+        // Accessing the media track from the consumer
+        const { track } = consumer!;
+        console.log("************** track", track!);
 
-                // Notifying the server to resume media consumption
-                socket.emit("resumePausedConsumer", () => { });
-                console.log("----------> consumer transport has resumed");
-            }
-        );
+        if (state.remoteVideo) {
+            state.remoteVideo.srcObject = new MediaStream([track]);
+        }
+
+        // Notifying the server to resume media consumption
+        socket!.emit("resumePausedConsumer", () => { });
+        console.log("----------> consumer transport has resumed");
     };
 
     const startPublish = useCallback(async (localvideoRef: RefObject<HTMLVideoElement | null>) => {

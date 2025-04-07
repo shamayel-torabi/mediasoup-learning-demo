@@ -3,7 +3,7 @@ import { parse } from "url";
 import next from "next";
 import mediasoup from "mediasoup";
 import { Server } from "socket.io";
-import { config } from "./config";
+import { config } from "./config.js";
 
 const port = parseInt(process.env.PORT || "3000", 10);
 const dev = process.env.NODE_ENV !== "production";
@@ -241,12 +241,12 @@ app.prepare().then(() => {
 
           // Invoke the callback with the consumer parameters
           // This allows the client to configure the consumer on its end
-          callback({
+          callback({params:{
             producerId: producer?.id,
             id: consumer?.id,
             kind: consumer?.kind,
             rtpParameters: consumer?.rtpParameters,
-          });
+          }});
         }
       } catch (error) {
         // Handle any errors that occur during the consume process
