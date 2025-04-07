@@ -26,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="en" dir="rtl">
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        <MediaProvider url="http://localhost:4000/mediasoup">
+        <MediaProvider>
           {children}
         </MediaProvider>
       </body>
