@@ -1,0 +1,26 @@
+POST http://127.0.0.1:3031/api/auth/login
+content-type: application/json
+
+{
+    "email": "shamayel.torabi@gmail.com",
+    "password": "sham"
+}
+
+###
+
+POST http://127.0.0.1:3031/api/auth/register
+content-type: application/json
+
+{
+    "email": "shamayel.torabi@gmail.com",
+    "password": "sham",
+    "role": "admin", 
+    "firstName": "شمایل",
+    "lastName": "ترابی"
+}
+
+###
+GET http://127.0.0.1:3031/api/auth/users
+
+###
+DELETE  http://127.0.0.1:3031/api/auth/users/1

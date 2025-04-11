@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+		integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Video Confrence</title>
+</head>
+
+<body>
+	<div class="d-flex justify-content-center align-items-center vh-100">
+		<div class="card" style="width: 18rem;">
+			<div class="card-body">
+				<h5 class="card-title">Join Room</h5>
+				<form id="frmJoin">
+					<div class="mb-3">
+						<label for="room" class="form-label">Room</label>
+						<input type="text" id="room" name="room" class="form-control" placeholder="Room Name" />
+					</div>
+					<div class="mb-3">
+						<label for="username" class="col-form-label">User</label>
+						<input type="text" id="username" name="username" class="form-control" placeholder="Username" />
+					</div>
+					<div>
+						<button type="submit" class="btn btn-primary">Join</button>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+	<script>
+		const frmJoin = document.getElementById('frmJoin');
+		const formSubmit = (e) => {
+			e.preventDefault();
+			const frmData = new FormData(e.target);
+			const room = frmData.get('room');
+			const username = frmData.get('username');
+			console.log('form submit', room, username)
+
+			if (room && username) {
+				window.location.replace(`/produce.html?room=${room}&username=${username}`)
+			}
+		}
+		frmJoin.addEventListener('submit', formSubmit);
+	</script>
+</body>
+
+</html>
